@@ -43,3 +43,15 @@ BeanFactory是整个Spring的基石，【是Spring IOC容器的本质】，基�
 因为是顶层接口，所以实际干活还是依赖它的实现。它有非常多实现类，每个实现类有着【不同且单一】的职责，最强大的工厂是：DefaultListableBeanFactory，Spring底层就是使用这个工厂创建Spring Bean的：
 
 ![image](https://user-images.githubusercontent.com/48977889/177089363-e6c2ec3b-8a17-4b7d-9082-5f40bd0137ac.png)
+
+# 4-BeanDefinition的作用
+
+BeanDefinition是用来【存储Spring Bean的元数据】的，比如Bean是否单例、是否懒加载、是否Primary、是否抽象、自动装配方式、属性值等等。比起Class，BeanDefinition存储了更多关于【Spring Bean生命周期】的元数据，可以看做是Class的装饰增强版，**BeanFactory也是基于BeanDefinition的信息来生成Spring Bean的**。基于知识点3的图做一个优化：
+
+![image](https://user-images.githubusercontent.com/48977889/177170047-354c4ffd-e633-4db6-9a4a-70d23c2a6a90.png)
+
+Bean先被Spring包装成BeanDefinition装进BeanDefinitionMap里，此时key是beanName，value是对应的BeanDefinition。BeanFactory再循环遍历BeanDefinitionMap，根据BeanDefinition定义的元数据创建每个Spring Bean。
+
+# 5-Spring Bean的4种形态（提前预热了解）：
+
+![image](https://user-images.githubusercontent.com/48977889/177170090-1a8b09af-0547-476e-afd5-49297a8a809c.png)
