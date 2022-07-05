@@ -109,3 +109,20 @@ public Object getBean(String name) throws BeansException {
 9. 判断是否需要回调，如果要，则调用。
 
 10. 将这个Spring Bean放入singletonObjects。
+
+# 8-Spring扩展接口
+
+Spring扩展递减指的是Spring在创建Spring Bean的时候，Bean【概念态】到【成熟态】会调用的方法，这些方法可以是Spring自己声明好的，也可以是我们通过实现接口的方式声明的。总的来说，可以分为5个大类：
+
+1. BeanDefinitionRegistryPostProcessor：在知识点7加载IOC容器时，用来【注册并加载BeanDefinition】到Map里。
+
+2. BeanFactoryPostProcessor：在知识点7加载IOC容器时，修改Map里的BeanDefinition，也就是修改Bean的元数据。但是在继承关系上，BeanDefinitionRegistryPostProcessor实现它。 
+
+3. 然后在Bean从【定义态】到【成熟态】时，会调用9种BeanPostProcessor，注意是9种。BeanPostProcessor的执行时机是这样的：
+   1. 实例化Bean（此时只是一个普通对象）
+   2. 调用BeanPostProcessor前置处理
+   3. 调用初始化方法
+   4. 调用BeanPostProcessor后置处理
+
+4. 在Bean的初始化阶段，会调用XXXAware接口的setAware方法。
+5. 在Bean的初始化阶段，会调用初始化扩展接口，比如InitializationBean，@PostConstruct等。
