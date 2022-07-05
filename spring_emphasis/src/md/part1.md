@@ -55,3 +55,57 @@ Bean先被Spring包装成BeanDefinition装进BeanDefinitionMap里，此时key是
 # 5-Spring Bean的4种形态（提前预热了解）：
 
 ![image](https://user-images.githubusercontent.com/48977889/177170090-1a8b09af-0547-476e-afd5-49297a8a809c.png)
+
+# 6-BeanFactory和ApplicationContext有什么区别？
+
+他俩都被叫做Spring IOC容器，只不过BeanFactory层级上属于ApplicationContext的下层。在早期版本中大家经常使用ClassPathXmlApplicationContext，那时候还得通过xml配置文件来配置每个Spring Bean的元数据，后面基本上使用注解的方式配置Bean，才会使用AnnotationConfigApplicationContext。
+
+但是在继承关系上，ApplicationContext实现了BeanFactory，但是ApplicationContext却包含了BeanFactory，那到底是谁在生产Spring Bean呢？看了下源码可以发现，ApplicationContext的getBean本质是调用了BeanFactory的getBean，这个BeanFactory是属于ApplicationContext的。也就是说，**本质是BeanFactory在生产Spring Bean**：
+
+```java
+public Object getBean(String name) throws BeansException {
+    this.assertBeanFactoryActive();
+    return this.getBeanFactory().getBean(name);
+}
+```
+
+比起BeanFactory只是纯粹地生成Spring Bean，ApplicationContext做了更多的事，比如Bean到BeanDefinition的转换，加载环境变量，事件监听等等。换个更好理解的说法：ApplicationContext像4S店，而BeanFactory更像是汽车工厂。当我想要1个汽车（Spring Bean）时，我会选择去4S店购买（从ApplicationContext获取），而不是去汽车工厂购买（BeanFactory），但是汽车工厂也能作为汽车容器（Spring IOC容器）使用。**所以我们一般称ApplicationContext为Spring IOC容器，而BeanFactory是Spring IOC容器的本质**。
+
+# 7-Spring IOC容器的加载过程
+
+之前看过源码，在捋一遍。首先知识点6已经说明了ApplicationContext是IOC容器，那么IOC容器是在什么时候加载的呢？或者说在哪个环节加载的呢？在Spring的设计里，**它是在创建1个ApplicationContext对象时就加载IOC容器了，也就是在new AnnotationConfigApplicationContext()的时候。**
+
+结合知识点5：
+
+1. 将Spring Bean从【概念态】转变为【定义态】，既根据元数据创建1个Spring Bean的BeanDefinition对象。
+2. 将BeanDefinition放入BeanDefinitionMap里，等待BeanFactory进行Spring Bean的创建。
+3. BeanFactory循环BeanDefinitionMap，将里面的BeanDefinition通过反射创建【纯净态】的Spring Bean，此时的Spring Bean里面还没有【依赖注入】的对象值，Spring也是通过这个设计来解决【依赖循环】的问题。 
+4. BeanFactory为【纯净态】的Spring Bean赋值【依赖注入】属性，最终生成可以使用的Spring Bean。
+
+细节：
+
+​		**从【概念态】到【定义态】**
+
+1. 创建ApplicationContext对象，会走以下流程。
+
+2. 通过BeanFactoryPostProcessor根据【特定规则】比如@Component、比如@Import，比如@Bean扫描元数据，将符合要求的Bean从【概念态】变为【定义态】，注册进BeanDefinitionMap。
+
+3.  再次调用其他BeanFactoryPostProcessor处理。
+
+   **从【定义态】到【纯净态】**
+
+4. 调用finishBeanFactoryInitialization方法来实例化这个BeanDefinition，此时BeanFactory会一个一个扫描BeanDefinition，**判断每个BeanDefinition是否有资格被创建**，因为有些Spring Bean是懒加载或者多例，是不希望在IOC容器初始化时加载的。
+
+5. BeanFactory先去singletonObjects看看这个Spring Bean是否已经被创建了（通过beanName），如果有则直接返回，不重复创建。
+
+6. BeanFactory通过反射创建这个Spring Bean，此时还处于【纯净态】，里面还没有依赖注入的属性。
+
+   **从【纯净态】到【成熟态】**
+
+7. 判断是否需要依赖注入，如果要，进行依赖注入。
+
+8. 判断是否需要调用这个Spring Bean的Aware接口，如果要，则调用。
+
+9. 判断是否需要回调，如果要，则调用。
+
+10. 将这个Spring Bean放入singletonObjects。
