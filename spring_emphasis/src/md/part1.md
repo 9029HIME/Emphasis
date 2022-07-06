@@ -1,3 +1,7 @@
+# 0-一些待解决的问题
+
+1. 到底是谁创建BeanDefinition,然后放进去Map里？
+
 # 1-Spring的优缺点是什么
 
 ## 优点
@@ -28,7 +32,7 @@ IoC容器就是用来实现了IoC功能的容器，什么是IoC？IoC就是控�
 
 之前看过一部分源码，直接下一个定义：Spring的IoC机制是基于【工厂模式】+【反射】实现的，其中【工厂】的直接体现是【BeanFactory】，【反射】体现在
 
-实际创建Sring Bean的时候。
+实际创建Spring Bean的时候。
 
 ## IoC和DI的区别？
 
@@ -126,3 +130,59 @@ Spring扩展递减指的是Spring在创建Spring Bean的时候，Bean【概念�
 
 4. 在Bean的初始化阶段，会调用XXXAware接口的setAware方法。
 5. 在Bean的初始化阶段，会调用初始化扩展接口，比如InitializationBean，@PostConstruct等。
+
+# 9-配置Spring Bean的方式
+
+其实就是定义Spring Bean概念态的方式，包括
+
+1. xml配置（早期会这样用）。
+2. 注解，如@Component、@Service、@Repository，但是得基于component-scan配置，SpringBoot自动集成了component-scan功能。
+3. @Bean，与@Component不同的是，@Bean创建的对象是人为创建的，而@Component是基于工厂+反射创建的。
+4. @Import，可以直接引入第三方的对象。
+
+# 10-Spring Bean的作用域
+
+有2种方式可以配置Spring Bean的作用域：1. xml属性 2. @Scope注解。一共有4种作用域：
+
+1. 单例：1个IoC容器1个bean
+2. 多例：每次获取都是不同的bean
+3. 单个请求：1个请求1个bean
+4. 单个session：1个Session1个bean
+5. application：1个ServletContext1个bean
+
+# 11-为什么Spring Bean默认是单例的？
+
+归根结底，就是为了性能。首先不可否认的是，我们交给Spring管理的bean基本上是【辅助完成业务功能】的bean，属于项目级别的，不会落实到具体业务，总不能将handler内使用的业务对象交给Spring管理吧？因此1个对象就能满足开发要求。
+
+使用单例模式来生成这些bean，【减少了多余的分配内存操作】，【也减少了垃圾对象的产生】，并且单例的话只需通过beanName从singletonObjects这个缓存里获取即可，也【提高了bean的获取速度】。
+
+1. 单例就能满足项目要求。
+2. 减少内存分配和动态代理带来的性能消耗。
+3. 减少垃圾对象。
+4. 获取速度快。
+
+# 12-Spring Bean的线程安全性
+
+一般开发过程中不要对Spring Bean的成员变量进行【写】操作，毕竟它默认是单例的，所以并发操作下Spring Bean不是线程安全的。对于局部变量倒是线程安全的，毕竟它存在局部变量表里，每一个线程都是独有的。
+
+# 13-Spring Bean如何处理并发操作问题？
+
+关于知识点12，如果实在要写成员变量，有以下几种解决方式：
+
+1. 将Bean声明为多例，但一般很少这样做。
+2. 使用ThreadLocal，但无法操作公共的成员变量，此时成员变量也是线程独有的。
+3. 加入同步机制，如sychronized或lock。
+
+# 14-实例化Spring Bean的方式
+
+首先给实例化下一个定义：创建对象。也就是知识点8里的实例化。
+
+1. 使用构造函数+反射的方式（Spring默认使用）。
+
+   【以下方式需要开发者手动控制】
+
+2. 指定这个Spring Bean的FactoryMethod（必须静态方法），FactoryMethod需要返回这个Spring Bean。
+
+3. @Bean方法的方式，和FactoryMethod优先类似，这个方法也需要也需要返回这个Spring Bean。
+
+4. 实现FactoryBean接口的方式，此时通过beanName获取的对象不一定是自身，而是【自己实现的接口方法的返回】。比如A implement FactoryBean，实现方法的过程中返回了B对象，那么getBean("a")实际返回的是B对象。
