@@ -2,6 +2,10 @@
 
 1. 到底是谁创建BeanDefinition,然后放进去Map里？
 
+2. Aware的作用
+
+   简单来说，如果SB实现了XXXAware接口，那么这个SB在初始化阶段会调用XXXAware接口的setXXX(XXX xxx)方法，具体怎么做就看你的方法实现了，一般是对方法参数的xxx对象进行一些处理。
+
 # 1-Spring的优缺点是什么
 
 ## 优点
@@ -125,7 +129,7 @@ Spring扩展递减指的是Spring在创建Spring Bean的时候，Bean【概念�
 3. 然后在Bean从【定义态】到【成熟态】时，会调用9种BeanPostProcessor，注意是9种。BeanPostProcessor的执行时机是这样的：
    1. 实例化Bean（此时只是一个普通对象）
    2. 调用BeanPostProcessor前置处理
-   3. 调用初始化方法
+   3. 初始化回调方法(比如@PostConstruct)
    4. 调用BeanPostProcessor后置处理
 
 4. 在Bean的初始化阶段，会调用XXXAware接口的setAware方法。
@@ -175,7 +179,7 @@ Spring扩展递减指的是Spring在创建Spring Bean的时候，Bean【概念�
 
 # 14-实例化Spring Bean的方式
 
-首先给实例化下一个定义：创建对象。也就是知识点8里的实例化。
+**首先给实例化下一个定义：创建对象。也就是知识点8里的实例化。**
 
 1. 使用构造函数+反射的方式（Spring默认使用）。
 
@@ -186,3 +190,44 @@ Spring扩展递减指的是Spring在创建Spring Bean的时候，Bean【概念�
 3. @Bean方法的方式，和FactoryMethod优先类似，这个方法也需要也需要返回这个Spring Bean。
 
 4. 实现FactoryBean接口的方式，此时通过beanName获取的对象不一定是自身，而是【自己实现的接口方法的返回】。比如A implement FactoryBean，实现方法的过程中返回了B对象，那么getBean("a")实际返回的是B对象。
+
+# 15-Spring Bean的装配
+
+加入Spring Bean没有装配，那么Spring程序在启动后Spring Bean只是独立地存在着，不同Spring Bean之间没有任何关系。装配就是建立Spring Bean之间的依赖关系。有2种装配：手动（配置文件）、自动（依赖注入）。
+
+# 16-SB的生命周期回调方法有哪些？
+
+SB在整个生命周期中，涉及2种回调方法：2. 初始化回调 3.销毁回调
+
+不管是初始化回调还是销毁回调，都有3种实现方式：注解、实现接口、注解属性，如果同时实现多个，那么优先级依次从高到低排序。
+
+对于初始化回调来说，分别是：
+
+1. 在SB内声明@PostConstruct注解的方法。
+2. SB实现InitializingBean接口，实现它的afterPropertiesSet方法。
+3. 通过@Bean配置SB时，指定initMethod属性，属性值是这个SB内的某个方法名。
+
+对于销毁回调来说，分别是：
+
+1. 在SB内声明@PreDestory注解的方法。
+2. SB实现DisposableBean接口，实现它的destroy方法。
+3. 通过@Bean配置SB时，指定destoryMethod属性，属性值是这个SB内的某个方法名。
+
+# 17-SB的生命周期
+
+其实和知识点7IOC加载过程有点类似，这里重点在SB，从大的方向看，可以分为5大部分：
+
+1. BeanDefininition包装
+2. 实例化
+   1. 就是单纯的【创建对象】，虽然是SB，但SB本质就是一个Bean，这里就是创建这个本质的Bean，此时还没有SB相关的属性，相当于SB的雏形，但比起BeanDefinition，更像一个【我们想要的对象】了。 
+   2. 实例化也会有多种方式，具体可以看知识点14。
+3. 属性赋值
+   1. 就是解析自动装配，进行依赖注入，在这一步会解决循环依赖的问题。
+4. 初始化
+   1. 调用实现的Aware的回调
+   2. 前置处理（BeanPostProcessor）
+   3. 调用初始化回调（知识点16）
+   4. 创建动态代理（如果需要的话）
+   5. 后置处理（BeanPostProcessor）
+5. 销毁
+   1. IOC容器关闭的时候，进行销毁回调（知识点16）
