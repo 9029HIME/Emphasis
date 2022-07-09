@@ -98,13 +98,13 @@ public Object getBean(String name) throws BeansException {
 
 1. 创建ApplicationContext对象，会走以下流程。
 
-2. 通过BeanFactoryPostProcessor根据【特定规则】比如@Component、比如@Import，比如@Bean扫描元数据，将符合要求的Bean从【概念态】变为【定义态】，注册进BeanDefinitionMap。
+2. 调用invokeBeanFactoryPostProcessor()方法，通过BeanFactoryPostProcessor根据【特定规则】比如@Component、比如@Import，比如@Bean扫描元数据，将符合要求的Bean从【概念态】变为【定义态】，注册进BeanDefinitionMap。
 
 3.  再次调用其他BeanFactoryPostProcessor处理。
 
    **从【定义态】到【纯净态】**
 
-4. 调用finishBeanFactoryInitialization方法来实例化这个BeanDefinition，此时BeanFactory会一个一个扫描BeanDefinition，**判断每个BeanDefinition是否有资格被创建**，因为有些Spring Bean是懒加载或者多例，是不希望在IOC容器初始化时加载的。
+4. 调用finishBeanFactoryInitialization方法来使用这个BeanDefinition，此时BeanFactory会一个一个扫描BeanDefinition，**判断每个BeanDefinition是否有资格被创建**，因为有些Spring Bean是懒加载或者多例，是不希望在IOC容器初始化时加载的。
 
 5. BeanFactory先去singletonObjects看看这个Spring Bean是否已经被创建了（通过beanName），如果有则直接返回，不重复创建。
 
@@ -289,3 +289,33 @@ SB在整个生命周期中，涉及2种回调方法：2. 初始化回调 3.销�
 
 没有，不过可以通过@Lazy解决。
 
+# 19-BeanDefinition的加载过程
+
+其实就是将【概念态】的SB转换为【定义态】，然后注入进BeanDefinitionMap的过程。我就说以JavaConfig方式吧，因为它是目前最主流的方式了。
+
+首先是初始化IOC容器，也就是AnnotationConfigApplicationContext，在这个过程中通过BeanDefinitionReader读取配置，再通过【解析器】解析对应的Spring注解，比如@Bean，@Import，@Component等等。当解析到@ ComponentScan时，会通过Scanner去扫描这个路径下的所有Class文件，再判断是否标注了Spring注解，在这过过程中会排除接口和抽象类，最终将合格的SB创建为BeanDefinition。
+
+# 20-如何对BeanDefinition注册完后做扩展
+
+在实例化IOC容器时，会调用invokeBeanFactoryPostProcessor方法创建BeanDefinition，然后注册进BeanDefinitionMap里，注册这一步是通过BeanDefinitionRegistryPostProcessor进行的，所有BeanDefinition注册完会调用BeanFactoryPostProcessor修改BeanDefinition（值得注意的是BeanDefinitionRegistryPostProcessor是继承BeanFactoryPostProcessor的）。
+
+也就是说只要自定义一个BeanFactoryPostProcessor的实现类，就能达到修改Bean定义的效果。 
+
+# 21-如何对SB注册完后做扩展
+
+和对BeanDefinition做扩展差不多，也是实现某个接口并注入IOC容器即可。在实例化IOC容器时，会调用finishBeanFactoryInitialization()方法循环Bean定义，然后创建SB。也就是说这个循环结束后，SB就会被完整创建好了。接着会进入下一个循环，这次循环是从一级缓存中找SB，看看这个SB是否实现了SmartInitializingSIngleton接口，如果是，就调用这个接口的afterSingletonsInstantiated()方法，也就是这个方法来完成SB的扩展处理的。
+
+除了这个，在finishBeanFactoryInitialization()之后还会调用finishRefresh()，里面会发布ContextRefreshedEvent事件。也就是说，只需创建一个监听器去监听这个事件，并且注入IOC容器内，也能达到SB扩展处理的效果。
+
+
+
+# 22-SB的生产顺序是如何确定的
+
+SB的生产顺序直接由Bean定义的注册顺序确定的，Bean定义的注册顺序如下：
+
+1. @Configuration最先
+2. @Conponent
+3. @Import一个Class
+4. @Bean
+5. @Import一个ImportBeanDefinitionRegister实现类
+6. 扩展BeanDefinitionRegistryPostProcessor来手动注册
