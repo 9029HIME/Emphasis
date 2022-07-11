@@ -1,12 +1,4 @@
-# 0-一些待解决的问题
-
-1. 到底是谁创建BeanDefinition,然后放进去Map里？
-
-2. Aware的作用
-
-   简单来说，如果SB实现了XXXAware接口，那么这个SB在初始化阶段会调用XXXAware接口的setXXX(XXX xxx)方法，具体怎么做就看你的方法实现了，一般是对方法参数的xxx对象进行一些处理。
-   
-3. 三级缓存还需要完善内容https://www.cnblogs.com/sniffs/p/13295558.html
+# IoC的知识重点，持续更新...
 
 # 1-Spring的优缺点是什么
 
@@ -317,5 +309,37 @@ SB的生产顺序直接由Bean定义的注册顺序确定的，Bean定义的注�
 2. @Conponent
 3. @Import一个Class
 4. @Bean
-5. @Import一个ImportBeanDefinitionRegister实现类
+5. @Import一个ImportBeanDefinitionRegistrar实现类
 6. 扩展BeanDefinitionRegistryPostProcessor来手动注册
+
+# 23-Component、Controller、Service、Repository有什么区别？
+
+本质没区别，本质就是Component。只不过Web应用一般分三层，所以方便阅读和理解代码而已。
+
+# 24-Autowired和Resource的区别
+
+Autowired是Spring提供了DI注解，Resource是JDK提供的DI注解，只不过Spring也支持了Resource的功能。Autowired优先以Class为匹配项注入，如果有多个则以参数名作为beanName为匹配，Resource则是相反的。
+
+# 25-Autowired的自动装配过程
+
+在创建IOC容器的时候，会先注入【支撑IOC初始化的SB】，其中就会注入一个Autowired注解的后置处理器。然后在populateBean之前会使用这个后置处理器进行预解析，将Autowire标注的属性或者方法的元数据缓存起来。然后在populateBean阶段使用这个后置处理器，基于预解析的元数据从IOC容器里找SB，然后进行赋值。
+
+# 26-Configuration的作用和解析过程
+
+1. 代替了xml配置的方式，但即使没有这个注解，也是可以注入@Bean方法返回的SB。
+2. 和Autowired一样，IOC容器初始化的过程中注入的Internel-SB（支撑IOC初始化的SB），其中就包括了ConfigurationClassPostProcessor，它是BeanDefinitionRegistryPostProcessor的实现类，在注册Bean定义的时候为那些@Configuration的SB创建cglib动态代理。
+3. 这个动态代理的代理作用是【保证@Configuration的SB在调用@Bean方法时，是从容器中获取的，而不是每次都会new一个对象，从而保证了单例】。
+4. 也就是说，想保证@Bean方法获取的对象的单例的话，只需将该方法所在类加上@Configuration注解即可。**当然，DI获取的肯定是单例的，这里说的是【调用@Bean方法】**
+
+# 27-将第三方类加入IOC容器的方式
+
+1. @Bean
+2. @Import
+3. @ImportSelector
+4. @Import一个ImportBeanDefinitionRegistrar的实现类
+5. 向IOC容器注入BeanDefinitionRegistryPostProcessor的实现类
+
+# 28-为什么@ComponentScan不设置basePackage，也能够进行扫描呢？
+
+从源码可以得知，如果没有basePackage，Spring会取这个@ComponentScan的使用类所在的包地址作为basePackage。
+
