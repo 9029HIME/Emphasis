@@ -59,3 +59,10 @@ CGLIB可以通过FastClass，实现【调用自身方法会增强】的特性，
    1. A类注入自己，通过注入的自己来调用b()。
    2. exposeProxy设置为true，然后通过AopContext.currentProxy()获取自己的代理对象，通过这个代理对象来调用b()。
 2. 代理方法a是private
+
+# 34-AOP是在哪里进行创建的？
+
+其实结合知识点18已经有答案了，有2个地方会创建AOP：
+
+1. A在初始化阶段通过从三级缓存获取ObjectFactory，调用getBean，最终是通过BeanPostProcessor的后置处理进行创建，然后将代理对象交给IOC容器。
+2. A在解决循环依赖B期间，B通过三级缓存找到A的ObjectFactory的getBean进行A的AOP提前创建，然后代理A放入二级缓存中。当然，最终在A的生命周期里，代理A还是会交给IOC容器管理的。
