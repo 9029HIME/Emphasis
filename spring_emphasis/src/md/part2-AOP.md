@@ -66,3 +66,18 @@ CGLIB可以通过FastClass，实现【调用自身方法会增强】的特性，
 
 1. A在初始化阶段通过从三级缓存获取ObjectFactory，调用getBean，最终是通过BeanPostProcessor的后置处理进行创建，然后将代理对象交给IOC容器。
 2. A在解决循环依赖B期间，B通过三级缓存找到A的ObjectFactory的getBean进行A的AOP提前创建，然后代理A放入二级缓存中。当然，最终在A的生命周期里，代理A还是会交给IOC容器管理的。
+
+# 42-Mybatis和Spring的桥梁：RegistryPostProcessor、扫描器、FactoryBean，动态代理
+
+回想一下，在项目中使用Mybatis的时候，都是直接注入一个Mapper接口，就能直接使用写好的sql逻辑了，这是为什么呢？实际上注入的是被Spring AOP后的动态代理对象。
+
+但是要明确一件事，当一个SB注解使用在接口上，接口也没有实现类时，Spring默认是不会将这个接口注册为Bean定义的。那Mybatis是如何做到的？其实Mybatis框架会向Spring注册一个BeanDefinitionRegistryPostProcessor，这个BeanDefinitionRegistryPostProcessor通过@MapperScan Import的一个重写了的扫描器，它会扫描到项目里配置好的Mapper接口，这样子Mapper接口就能作为Bean定义注册进BeanDefinitionMap了。
+
+可以Mapper接口本质是一个接口，即使称为Bean定义了，还是不能实例化啊。其实Mybatis在创建Mapper的Bean定义时，都指定了Bean定义的beanClass是MapperFactoryBean，它是Mybatis的一个FactoryBean，还记得知识点14就说过，实例化SB的时候发现是FactoryBean接口的派生的话，会调用它的getObject()方法，这里就是偷梁换柱、接口变对象的地方了，最后在这个动态代理对象会被注入IOC容器了，供我们使用。 
+
+四个桥梁的作用：
+
+1. RegistryPostProcessor：将接口注册为Bean定义。
+2. 扫描器（由@MapperScan引入）：将哪些接口注册为Bean定义，并且更换Bean定义的beanClass为MapperFactoryBean。
+3. FactoryBean：使用JDK动态代理，返回Mapper接口的实现类。
+4. 动态代理：接口变实现类的方式。
