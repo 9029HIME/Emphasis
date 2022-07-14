@@ -1,0 +1,8 @@
+# 1-SpringBoot自动配置过程
+
+主要还是@SpringBootConfiguration这个注解，它Import了一个ImportSelector（@SpringBootConfiguration→@EnableAutoConfiguration → AutoConfigurationImportSelector），这个Selector需要在最后Import SB，这样能方便我们扩展和覆盖，因为SpringBoot有Condition的特性，如果不在最后才被解析，那么Condition的条件就很难判断了，总不能提前让Selector把自动配置类都装进IOC容器，再一个一个地排除吧。 
+
+AutoConfigurationImportSelector会以EnableAutoConfiguration的全类名为Key，从【所有依赖】的【类路径】下的【META-INF/spring.factories的文件】里找到【需要自动配置的类】的全类名，这是SpringBoot的初筛。然后再从初筛结果里过滤掉不满足Condition注解的类，最后剩下的就是本次SpringBoot工程需要引入的自动配置类的全类名。 
+
+# 2-SpringBoot的jar包能直接运行的原因
+
