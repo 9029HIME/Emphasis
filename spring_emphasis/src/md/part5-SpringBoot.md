@@ -74,3 +74,23 @@ static class EmbeddedTomcat {
 ```
 
 在SpringBoot工程启动的时候，在refresh（初始化） IOC容器时，不是会走自动配置类的解析嘛？就会解析到Servlet容器的自动配置类，接着根据Conditional选择注入Tomcat工厂。起码走完这一步是有工厂了，这个是毋容置疑的。那么在哪里调用工厂来创建Tomcat呢？IOC容器在初始化完成后会调用onRefresh方法，在SpringBoot的IOC容器里，这个onRefresh方法会通过class在容器里找到Servlet容器工厂，然后就能找到Tomcat工厂了，不过值得注意的是，在这一步它只允许容器存在一个Servlet容器工厂，不然就会启动时抛异常了，这个挺好理解的。最终通过Tomcat工厂去创建Tomcat，然后启动Tomcat，接着就是通过一个线程去挂起Tomcat等待后续的请求到来了。
+
+# 5-SpringBoot读取配置文件过程
+
+其实知识点3就说过了，是基于事件的方式进行的。SpringBoot启动的时候会发布一个【读取配置文件】的事件，当监听器被实例化后（**注意它作为SpringBoot基础对象，是由SpringBoot实例化的，可以通过自动配置的方式创建，但不是作为SB注入后才使用**），就会读取相关的配置文件。这里是通过一个叫配置文件监听器的Listener去监听的。
+
+# 6-SpringBoot日志
+
+默认的日志框架是logback，但统一使用的日志规范是slf4j，logback只是它的其中一个实现方式而已。想要使用日志的话，必须得满足3样东西
+
+1. 日志规范，slf4j
+2. 日志桥接器：不同日志实现有不同的桥接器，算是【日志实现】与【日志规范】的桥梁
+3. 日志框架：具体的日志实现，需要用【日志桥接器】与【日志规范】进行桥接
+
+比如log4j它需要log4j-to-slf4j这个桥接器的依赖，才能整合slf4j。只不过SpringBoot默认使用logback-classic + logback这套组合而已。
+
+# 7-SpringBoot的一些其他扩展点
+
+为什么SpringBoot的有些扩展点需要以spring.factories的方式配置呢？很简单，许多扩展点在IOC创建之前就要调用了，总不能通过注入IOC容器的方式吧？只能依赖SpringBoot的自动配置读取来创建自定义扩展点的对象。
+
+https://blog.csdn.net/m0_48358308/article/details/122142658
