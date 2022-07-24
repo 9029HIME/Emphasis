@@ -7,14 +7,16 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="emphasis" />
-        <module name="spring_emphasis" />
         <module name="mysql_emphasis" />
+        <module name="redis_emphasis" />
+        <module name="spring_emphasis" />
       </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="mysql_emphasis" options="-parameters" />
+      <module name="redis_emphasis" options="-parameters" />
       <module name="spring_emphasis" options="-parameters" />
     </option>
   </component>
