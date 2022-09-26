@@ -6,8 +6,9 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="emphasis" />
         <module name="mysql_emphasis" />
+        <module name="project_emphasis" />
+        <module name="design_pattern" />
         <module name="redis_emphasis" />
         <module name="spring_emphasis" />
       </profile>
