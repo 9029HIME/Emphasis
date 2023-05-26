@@ -9,6 +9,7 @@
         <module name="mysql_emphasis" />
         <module name="project_emphasis" />
         <module name="design_pattern" />
+        <module name="rabbitmq_advance" />
         <module name="redis_emphasis" />
         <module name="spring_emphasis" />
       </profile>
