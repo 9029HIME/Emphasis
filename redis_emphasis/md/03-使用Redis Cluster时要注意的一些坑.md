@@ -18,7 +18,7 @@
 
 当NodeA被标记为FAIL后，R-Demo会开启Slot迁移，将NodeA的Slot迁移到其他节点上，通常这个过程由第一个发现NodeA下线的节点，这个节点也被称为**故障恢复领导者节点**，这里假设为NodeB。
 
-# Slot迁移
+# Slot迁移（故障）
 
 ## 无从节点
 
@@ -63,6 +63,10 @@
 1. 如果故障机配置了从节点，从主从集群的角度考虑，当Master宕机后Slave会被晋升为New Master，当Old Master恢复后会自动成为New Master的Slave（原本是Sentinel Cluster的功能，后面Redis Cluster也实现了）。从Redis Cluster的角度考虑，它已经认为Old Master为Slave了，只要New Master还在，它仍然是承载Slot的节点。
 2. 如果故障机没有配置从节点，只要完成了Slot迁移，即使故障机恢复Redis Cluster也不会将迁移成功的Slot归还回去。
 
+## Slot迁移的完整过程（故障）
+
+TODO
+
 ## Redis客户端访问正在迁移的Slot
 
 在生产环境运行中，Slot迁移必然会对应用程序产生影响，不管是`宕机节点的Slot`还是`因为slot分布新方案而被迫迁移到其他节点的Slot`，Redis客户端在Slot迁移过程中访问里面的Key必然会失败，但是Redis Cluster做了巧妙的处理，可以尽量地提供集群的可用性：
@@ -80,3 +84,67 @@ MOVED <hash slot> <ip>:<port>
 比如，假设一个MOVED 错误消息是 MOVED 3999 127.0.0.1:6381，这表示Slot = 3999 的数据已经被移动到了 127.0.0.1:6381 这个地址的节点。Redis客户端会根据这个错误信息重新将请求发送到127.0.0.1:6381，当然，也有可能此时127.0.0.1:6381的Slot还未迁移完成，此时Redis客户端可以视情况决定`继续重试`或者`抛出异常`。
 
 大多数Redis客户端库，例如Redis官方的redis-cli，Java的Jedis，Node.js的ioredis，Python的redis-py-cluster都支持MOVED错误的处理，**尽量使得上层应用对Slot迁移无感**。
+
+# Redis Cluster处理请求的过程
+
+值得注意的是，MOVED请求并不是Slot迁移的专属，以在`定义一个Redis Cluter`里创建的R-Demo为例，它的处理请求流程如下：
+
+1. 计算key属于哪个Slot。
+2. 判断Slot是否属于自身节点？
+   1. 是：执行命令，返回结果
+   2. 不是：向Redis客户端返回MOVED响应。Redis客户端根据MOVED响应重新请求目标节点。
+
+**也就是说：其他Slot的请求并不是由Redis Cluster的某个节点进行转发，而是交给Redis客户端自行重定向**：
+
+![01](03-使用Redis Cluster时要注意的一些坑.assets/01.png)
+
+![03](03-使用Redis Cluster时要注意的一些坑.assets/03.png)
+
+# Slot迁移（手动）
+
+## 案例介绍
+
+在Redis Cluster中，添加一个新的节点时，新的节点默认是不持有任何Slot的。也就是说，新节点在被添加到集群后，除非**通过命令**显式地将Slot迁移到该节点，否则它不会自动承担任何数据负载。常用的手动迁移Slot工具是redis-trib，**值得注意的是：redis-trib和failover leader（故障恢复领导者）的Slot迁移过程并不相同**，接下来重点介绍redis-trib的迁移过程。
+
+| 节点名 |   Slot范围    |
+| :----: | :-----------: |
+| Node A |   0 - 5460    |
+| Node B | 5461 - 10922  |
+| Node C | 10923 - 16383 |
+| Node D |       ~       |
+
+在R-Demo额外引入Node D节点，默认情况下新加入的节点不持有任何Slot，为了方便演示，接下来通过CLUSTER ADDSLOTS将NodeC的16381 - 16383的Slot迁移到Node D，形成以下分布：
+
+|   节点名   |     Slot范围      |
+| :--------: | :---------------: |
+|   Node A   |     0 - 5460      |
+|   Node B   |   5461 - 10922    |
+|   Node C   |   10923 - 16380   |
+| **Node D** | **16381 - 16383** |
+
+## 手动迁移过程
+
+上面从NodeC迁移3个Slot到NodeD，redis-trib的Slot迁移过程是针对**单个Slot**进行的，也就是说，可以将上面的案例看成redis-trib先迁移16381 Slot，再迁移16382 Slot，再迁移16383 Slot，每个Slot的迁移逻辑相同，以16381 Slot为例：
+
+1. redis-trib通过CLUSTER SETSLOT 16381 IMPORTING NodeC通知NodeD**接下来NodeC会迁移Slot 16381过来**。
+2. redis-trib通过CLUSTER SETSLOT 16381 MIGRATING NodeD通知NodeC**接下来将Slot 16381迁移给NodeD**。
+3. redis-trib对NodeC执行CLUSTER GETKEYSSINSLOT 16381 $count命令，获取最多$count个在NodeC属于Slot 16381的Key。举个例子，在NodeC迁移Slot之前Slot 16381一共有15个Key，如果$count = 5，那么每次都会从这15个Key里**依次获取5个Key**。
+4. redis-trib逐个遍历3.获取的Key，然后对NodeC执行MIGRATE $NodeDIP $NodeDPort $Key 0 $timeout命令，将Key和Value**原子性地**从NodeC迁移到NodeD，要么迁移成功（NodeC不存在，NodeD存在），要么迁移失败（NodeC不存在）。
+5. 反复执行3和4，直到NodeC中Slot 16381的所有Key和Value都被迁移到NodeD。**此时NodeD才真正认为Slot 16381迁移成功（在3和4的步骤中只认为“正在迁移”）。**
+6. redis-trib通过CLUSTER SETSLOT 16381 NODE $NodeDIP将SLOT 16381的迁移情况广播给所有节点。
+
+## 手动迁移与客户端访问
+
+还是以迁移Slot 16381为例，假如此时Redis客户端访问Slot 16381的KeyA会发生什么？这里先假设Redis向NodeA发起GET KeyA：
+
+1. Redis客户端向NodeA发起GET KeyA请求。
+
+2. NodeA计算KeyA的Slot位置，发现KeyA在Slot 16381并且Slot 16381在NodeC。**注意！此时Slot 16381正在迁移，NodeA还不知道这个Slot的迁移目标节点是NodeD。**于是返回MOVED 16381 $NodeCIP:$NodeBPort。
+
+3. Redis客户端根据2.的MOVED错误，重新向NodeC发起GET KeyA请求。
+
+4. NodeC判断KeyA是否已经迁移到NodeD了（**注意上面说到迁移Key是原子操作**），如果未迁移，则直接向Redis客户端返回KeyA的Value；如果已迁移，则返回ASK错误。
+
+   ASK错误的格式是`ASK $Slot $NodeIp:$NodePort`。
+
+5. 客户端根据ASK错误重新向Node D发起ASKING请求和GET KeyA请求，最终获得KeyA的Value。
