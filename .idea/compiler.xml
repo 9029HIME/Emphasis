@@ -6,12 +6,13 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="design_pattern" />
+        <module name="spring_emphasis" />
+        <module name="kafka_advance" />
         <module name="mysql_emphasis" />
         <module name="project_emphasis" />
-        <module name="design_pattern" />
         <module name="rabbitmq_advance" />
         <module name="redis_emphasis" />
-        <module name="spring_emphasis" />
       </profile>
     </annotationProcessing>
   </component>
