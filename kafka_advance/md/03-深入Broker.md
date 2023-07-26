@@ -64,3 +64,10 @@ Restful接口是基于HTTP协议进行的，当客户端将一个HTTP请求发�
 
 直接看之前的[笔记](https://github.com/9029HIME/Kafka_Note/blob/master/src/mds/04%20KafkaBroker.md)
 
+# 控制器
+
+在[旧笔记](https://github.com/9029HIME/Kafka_Note/blob/master/src/mds/04%20KafkaBroker.md)中可以发现，Kafka Cluster中没有Broker主从之分，但有一个大脑Controller维护着整个集群的运转，这里再探究一些细节。
+
+首先，Broker在启动时，会尝试去ZooKeeper中创建/controller临时节点，在/brokers/ids下创建一个临时znode。第一个创建controller节点成功的Broker将会称为Controller，Controller会利用Zookeeper的Watch机制检查ZooKeeper的/brokers/ids节点下的子节点数量变更。因为是临时节点，所以任何/brokers/ids下的变更都会通过Watch机制通知到Controller，而Controller也是通过Watch到的信息进行下一步操作，比如添加新节点的元数据，或者进行Broker故障转移。**其中Ctonroller上保存了最全的集群元数据信息，其他所有Broker会定期接收控制器发来的元数据更新请求，从而更新其内存中的缓存数据。**
+
+至于旧笔记留下的坑：Controller挂掉后会怎么办？实际上，Zookeeper会通过心跳感知到Controller节点的宕机，当Controller宕机后，Zookeeper会将/controller临时节点删除，然而，controller的竞争是一直进行的，最终幸存的Broker会有1个创建/controller临时节点成功，称为新的Controller，同时从Zookeeper上读取到最新的集群元数据，根据集群元数据进行Partition的故障转移。
