@@ -6,6 +6,7 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="banking_and_finance" />
         <module name="design_pattern" />
         <module name="spring_emphasis" />
         <module name="kafka_advance" />

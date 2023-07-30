@@ -13,6 +13,7 @@
         <module>project_emphasis</module>
         <module>rabbitmq_advance</module>
         <module>kafka_advance</module>
+        <module>banking_and_finance</module>
     </modules>
 
     <properties>
