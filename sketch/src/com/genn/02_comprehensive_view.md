@@ -20,3 +20,74 @@ Traditional Distributed Transaction needs a `coordinator` to complete the whole 
 There also be an untraditional coordinator like MQ , it can make whole process of transaction asynchronous base on soft-state and eventual consistency. **But it needs the support of soft-state from requirement and design like A, A-ing(soft-state), B instead of A, B.** besides, the eventual consistency of this kind of global transaction depends on the availability of MQ.
 
 It is same as RPC, Global Transaction also has availability question as request pass through different processes and it is unavoidable, so it is important for mature coordinator to have some extra features like `failure monitoring`, `failure retry`, `failure alarm` so that we could fix it easily to achieve eventual consistency  as a developer, **not just give it to coordinator and let it go unchecked**.
+
+# HTTP
+
+## features
+
+HTTP1.1 has a feature of reuse of TCP connection, but it also raise a blocking queue question, that acts like the request in the back will be blocked when the head request is blocking as they all use same connection.
+
+in HTTP2, the min-unit of message is changed from `request` to `frame`, it means one logical request can be divide into multiple frames and send them out through different actual requests. frames from same logical request can prove itself which logical request it belongs to by a header called a name like `streamId`(or the other, I forgot it) and they can be sent out by different times in one connection, it achieves the effect of avoiding blocking queue question(of course, the Server also be needed to assemble frames to completable stream)
+
+## compression
+
+In previous time, It is like file was compressed in advance and was put in file system, and recording a compression type in Response Header while responding data to client, and client will also decompress response data through what compression type presents, what I say above is called `Static Precompression`.
+
+But now it is almost basically using Compress-In-Time(like Just-In-Time) while transferring data, but there is a drawback like client doesn't recognize exactly what size this resource is. Therefore, A Response Header named `Transfer-Encoding: chunked` was added while HTTP1.1, it represents this kind of Response is named `Chunked Transfer` and TCP/IP frame will record data through type similar to `TLV`, it means every chunk contain both length value through hexadecimal and corresponding data payload, the length occupy first line, and the second line begins with data, the resource is ended with the chunk recoding zero, like sending:
+
+```
+This is the data in the first chunk
+and this is the second one
+```
+
+above text, it will finally send following response messages:
+
+```http
+HTTP/1.1 200 OK
+Date: Sat, 11 Apr 2020 04:44:00 GMT
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+25(as 0x25, which is the hexadecimal of 37, the same below)
+This is the data in the first chunk\r\n
+```
+
+```http
+HTTP/1.1 200 OK
+Date: Sat, 11 Apr 2020 04:44:00 GMT
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+1C
+and this is the second one
+```
+
+```http
+HTTP/1.1 200 OK
+Date: Sat, 11 Apr 2020 04:44:00 GMT
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+0
+```
+
+# Load Balance
+
+## Data Link layer Load Balance
+
+It is like client sends out request to Load Balancer(hereafter call LB) and then LB could modify the MAC addr In MAC message through load balance strategy, so it achieves the effect of transferring message to destination server, and it is just affect the process of sending out, not responding, destination server still respond data to client directly, it means client can not be deployed across different network segment from server and LB, and all servers need to use the same virtual IP as LB's. this kind of load balance mode construct a relationship like triangle, so it is also called `Direct Server Return`, it is like:
+
+![01](02_comprehensive_view.assets/01.png)
+
+## Network Layer Load Balance-IP Tunnel
+
+Layer 3 Switch regard original IP message as a payload, and set additional headers into it, and the new headers contain destination server ip addr after load balance strategy(it seems like nesting dolls). But it means the destination server should also have the capacity of disassembling the additional headers from IP message through IP tunnel protocol(and nearly all the released linux have it). it is similar to what I said above about `Data Link layer Load Balance`, they are both like `Direct Server Return`, just to turn over the consumption of disassembling from LB to server, and their drawbacks are same. 
+
+![02](02_comprehensive_view.assets/02.png)
+
+## Network Layer Load Balance-NAT
+
+It is like it get rid of `Direct Server Return`, so it doesnt need disassembling and same virtual IP as LB. it is just needed to change destination addr to real addr while sending data and responding data by NAT-LB. no IP tunnel protocol and no same virtual IP, just need to change the addr in IP message. and there also is a similar way named SNAT to achieve this like changing both source addr and destination addr in IP message . though NAT and SNAT both get rid of `Direct Server Return`, it is obvious that basically all the stresses are concentrated on NAT-LB, so there will be much consumption lost when the pressure of NAT-LB is pretty huge. This is often reflected in the situation like some people is downloading movies and the other people feels it slow.
+
+![03](02_comprehensive_view.assets/03.png)
+
