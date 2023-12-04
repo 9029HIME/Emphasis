@@ -75,19 +75,19 @@ Connection: keep-alive
 
 ## Data Link layer Load Balance
 
-It is like client sends out request to Load Balancer(hereafter call LB) and then LB could modify the MAC addr In MAC message through load balance strategy, so it achieves the effect of transferring message to destination server, and it is just affect the process of sending out, not responding, destination server still respond data to client directly, it means client can not be deployed across different network segment from server and LB, and all servers need to use the same virtual IP as LB's. this kind of load balance mode construct a relationship like triangle, so it is also called `Direct Server Return`, it is like:
+It is like client sends out request to Load Balancer(hereafter call LB) and then LB could modify the MAC addr In MAC message through load balance strategy, so it achieves the effect of transferring message to destination server, and it only affect the process of sending out, not responding, destination server still respond directly with data to the client , it means client can not be deployed across different network segment from server and LB, and all servers need to use the same virtual IP as LB's. this kind of load balance mode construct a relationship like triangle, so it is also called `Direct Server Return`, it is like:
 
 ![01](02_comprehensive_view.assets/01.png)
 
 ## Network Layer Load Balance-IP Tunnel
 
-Layer 3 Switch regard original IP message as a payload, and set additional headers into it, and the new headers contain destination server ip addr after load balance strategy(it seems like nesting dolls). But it means the destination server should also have the capacity of disassembling the additional headers from IP message through IP tunnel protocol(and nearly all the released linux have it). it is similar to what I said above about `Data Link layer Load Balance`, they are both like `Direct Server Return`, just to turn over the consumption of disassembling from LB to server, and their drawbacks are same. 
+Layer 3 Switch regards original IP message as a payload, and set additional headers into it, and the new headers contain the destination server's ip addr after applying load balance strategy(it seems like nesting dolls). But it means the destination server should also have the capacity of disassembling the additional headers from IP message through IP tunnel protocol(and nearly all the released linux have it). it is similar to what I said above about `Data Link layer Load Balance`, they are both like `Direct Server Return`, just to turn over the consumption of disassembling from LB to server, and their drawbacks are same. 
 
 ![02](02_comprehensive_view.assets/02.png)
 
 ## Network Layer Load Balance-NAT
 
-It is like it get rid of `Direct Server Return`, so it doesnt need disassembling and same virtual IP as LB. it is just needed to change destination addr to real addr while sending data and responding data by NAT-LB. no IP tunnel protocol and no same virtual IP, just need to change the addr in IP message. and there also is a similar way named SNAT to achieve this like changing both source addr and destination addr in IP message . though NAT and SNAT both get rid of `Direct Server Return`, it is obvious that basically all the stresses are concentrated on NAT-LB, so there will be much consumption lost when the pressure of NAT-LB is pretty huge. This is often reflected in the situation like some people is downloading movies and the other people feels it slow.
+It is like it getting rid of `Direct Server Return`, so it doesnt need disassembling and same virtual IP as LB. it just needs have its destination addr changed to real addr by LB during sending data and responding data . no need for IP tunnel protocol and same virtual IP, just need to change the addr in IP message. and there also is a similar method named SNAT to achieve this by changing both source addr and destination addr in IP message . though NAT and SNAT both eliminate `Direct Server Return`, it is obvious that basically all the stress are concentrated on NAT-LB, so there will be significant consumption lost when the pressure of NAT-LB is high. This is often reflected in the situation like some people is downloading movies and the others may experience slower speeds.
 
 ![03](02_comprehensive_view.assets/03.png)
 
